@@ -48,6 +48,10 @@ git clone https://github.com/WukongMaster/luci-app-poweroff.git package/luci-app
 # 7-添加外部软件源
 git clone -b lede https://github.com/zouchanggan/openwrt-packages ./package/small
 
+# iStore #GGFF
+git_sparse_clone main https://github.com/linkease/istore-ui app-store-ui
+git_sparse_clone main https://github.com/linkease/istore luci
+
 # 8-删除依赖(防止插件冲突，删除重复)
 rm -rf feeds/packages/net/{lucky,alist,adguardhome,mosdns,xray*,v2ray*,v2ray*,sing*,smartdns}
 rm -rf feeds/packages/utils/v2dat
