@@ -2,7 +2,7 @@
 # ============================================================================================
 
 # 1-修改管理地址
-# sed -i 's/192.168.1.1/192.168.1.254/g' package/base-files/files/bin/config_generate
+sed -i 's/192.168.1.1/192.168.99.1/g' package/base-files/files/bin/config_generate
 
 # 2-修改内核版本
 sed -i 's/KERNEL_PATCHVER:=6.6/KERNEL_PATCHVER:=6.12/g' ./target/linux/x86/Makefile
@@ -36,7 +36,7 @@ git clone https://github.com/WukongMaster/luci-app-poweroff.git package/luci-app
 git clone https://github.com/WukongMaster/luci-theme-opentomcat.git package/luci-theme-opentomcat
 
 # 4-添加 luci-theme-kucat 主题
-# git clone https://github.com/sirpdboy/luci-theme-kucat.git package/luci-theme-kucat
+git clone https://github.com/sirpdboy/luci-theme-kucat.git package/luci-theme-kucat
 
 # 5-添加 OpenClash 插件
 sed -i '$a\src-git openclash https://github.com/vernesong/OpenClash' ./feeds.conf.default
