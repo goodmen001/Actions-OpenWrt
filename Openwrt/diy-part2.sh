@@ -39,16 +39,19 @@ git clone https://github.com/WukongMaster/luci-theme-opentomcat.git package/luci
 # git clone https://github.com/sirpdboy/luci-theme-kucat.git package/luci-theme-kucat
 
 # 5-添加 OpenClash 插件
-# sed -i '$a\src-git openclash https://github.com/vernesong/OpenClash' ./feeds.conf.default
+sed -i '$a\src-git openclash https://github.com/vernesong/OpenClash' ./feeds.conf.default
 
 # 6-添加 PassWall 插件
-# echo "src-git passwall https://github.com/xiaorouji/openwrt-passwall.git;main" >> "feeds.conf.default"
-# echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" >> "feeds.conf.default"
+echo "src-git passwall https://github.com/xiaorouji/openwrt-passwall.git;main" >> "feeds.conf.default"
+echo "src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main" >> "feeds.conf.default"
 
 # 7-添加外部软件源
 # git clone -b lede https://github.com/zouchanggan/openwrt-packages ./package/small
 git clone https://git.kejizero.online/zhao/openwrt_helloworld.git package/helloworld -b v5
 git clone https://github.com/oppen321/openwrt-package package/openwrt-package
+
+# add app GF
+src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git;main package/luci-app-nikki
 
 # 8-删除依赖(防止插件冲突，删除重复)
 rm -rf feeds/packages/net/{xray-core,v2ray-core,v2ray-geodata,sing-box,adguardhome,socat,zerotier}
