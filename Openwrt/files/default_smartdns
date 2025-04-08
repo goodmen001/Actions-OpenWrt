@@ -1,0 +1,196 @@
+config smartdns
+	option enabled '0'
+	option old_port '53'
+	option old_enabled '0'
+	option old_auto_set_dnsmasq '1'
+
+config domain-rule
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name '清华大学TUNA协会'
+	option ip '101.6.6.6'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name '114'
+	option ip '114.114.114.114'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+	option port '53'
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name 'ail dns ipv4'
+	option ip '223.5.5.5'
+	option port '53'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'Ali DNS'
+	option ip 'https://dns.alidns.com/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name '360 Secure DNS'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+	option ip 'https://doh.360.cn/dns-query'
+
+config server
+	option enabled '1'
+	option name 'DNSPod Public DNS+'
+	option ip 'https://doh.pub/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name 'baidu dns'
+	option ip '180.76.76.76'
+	option port '53'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name '360dns'
+	option ip '101.226.4.6'
+	option port '53'
+	option server_group 'smartdns-China'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option type 'udp'
+	option name 'dnspod'
+	option ip '119.29.29.29'
+	option port '53'
+	option blacklist_ip '0'
+	option server_group 'smartdns-China'
+
+config server
+	option enabled '1'
+	option name 'Cloudflare-tls'
+	option ip '1.1.1.1'
+	option type 'tls'
+	option server_group 'smartdns-Overseas'
+	option exclude_default_group '0'
+	option blacklist_ip '0'
+	option no_check_certificate '0'
+	option port '853'
+	option spki_pin 'GP8Knf7qBae+aIfythytMbYnL+yowaWVeD6MoLHkVRg='
+
+config server
+	option enabled '1'
+	option name 'Google_DNS-tls'
+	option type 'tls'
+	option server_group 'smartdns-Overseas'
+	option exclude_default_group '0'
+	option blacklist_ip '0'
+	option no_check_certificate '0'
+	option port '853'
+	option ip '8.8.4.4'
+	option spki_pin 'r/fTokourI3+um9Rws4XrHG6fWEmHpZ8iWnOUjzwwjQ='
+
+config server
+	option enabled '1'
+	option name 'Quad9-tls'
+	option ip '9.9.9.9'
+	option type 'tls'
+	option server_group 'smartdns-Overseas'
+	option exclude_default_group '0'
+	option blacklist_ip '0'
+	option no_check_certificate '0'
+	option port '853'
+	option spki_pin '/SlsviBkb05Y/8XiKF9+CZsgCtrqPQk5bh47o0R3/Cg='
+
+config server
+	option enabled '1'
+	option name 'quad9-ipv6'
+	option ip '2620:fe::fe'
+	option port '9953'
+	option type 'udp'
+	option server_group 'smartdns-Overseas'
+	option exclude_default_group '0'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name '谷歌DNS'
+	option ip 'https://dns.google/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'Cloudflare DNS '
+	option ip 'https://dns.cloudflare.com/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'CIRA Canadian Shield DNS'
+	option ip 'https://private.canadianshield.cira.ca/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'Restena DNS'
+	option ip 'https://kaitain.restena.lu/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'Quad9 DNS'
+	option ip 'https://dns.quad9.net/dns-query'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'CZ.NIC ODVR'
+	option ip 'https://odvr.nic.cz/doh'
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'
+
+config server
+	option enabled '1'
+	option name 'AhaDNS-Spain'
+	option ip 'https://doh.es.ahadns.net/dns-query '
+	option type 'https'
+	option no_check_certificate '0'
+	option server_group 'smartdns-Overseas'
+	option blacklist_ip '0'

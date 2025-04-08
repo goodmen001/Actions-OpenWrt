@@ -1,0 +1,985 @@
+#!/bin/bash
+
+# 彩色输出函数
+color_output() {
+    echo -e "$1"
+}
+
+# 打印脚本头部，增加美观
+print_header() {
+    clear
+    # 获取系统信息
+    local model=$(cat /tmp/sysinfo/model 2>/dev/null || echo "未知设备")
+    # 使用更可靠的方式获取 CPU 使用率
+    local cpu_usage=$(grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {printf "%.1f%%", usage}')
+    local mem_total=$(free | grep Mem | awk '{print $2}')
+    local mem_used=$(free | grep Mem | awk '{print $3}')
+    local mem_usage=$((mem_used * 100 / mem_total))
+
+    color_output "\e[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\e[0m"
+    color_output "\e[36m┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\e[0m"
+    color_output "\e[36m┃                                       ┃\e[0m"
+    color_output "\e[36m┃        \e[33m欢迎使用 ZeroWrt 配置工具\e[36m      ┃\e[0m"
+    color_output "\e[36m┃                                       ┃\e[0m"
+    color_output "\e[36m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\e[0m"
+    color_output "\e[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\e[0m"
+    color_output ""
+    color_output "\e[34m系统信息\e[0m"
+    color_output "----------------------------------------"
+    color_output "  设备型号: $model"
+    color_output "  CPU 占用: $cpu_usage"
+    color_output "  内存占用: ${mem_usage}%"
+    color_output "----------------------------------------"
+    color_output "\e[32m说明：本工具用于配置 ZeroWrt      \e[0m"
+    color_output "\e[32m博客：https://www.kejizero.online\e[0m"
+    color_output "----------------------------------------"
+    echo ""
+}
+
+# 显示菜单
+show_menu() {
+    color_output "\e[36m┏━━━━━━━━━━━━━━━ 功能菜单 ━━━━━━━━━━━━━━━┓\e[0m"
+    color_output "\e[36m┃                                        ┃\e[0m"
+    color_output "\e[36m┃\e[0m  1. 更改 LAN 口 IP 地址                \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  2. 更改管理员密码                     \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  3. 切换默认主题                       \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  4. 恢复出厂设置                       \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  5. 一键换源                           \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  6. 一键设置                           \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  7. 一键部署                           \e[36m┃\e[0m"  
+    color_output "\e[36m┃\e[0m  8. IPv6 开关 (仅适用于主路由)         \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  9. iStoreOS 风格化                    \e[36m┃\e[0m"    
+    color_output "\e[36m┃\e[0m  10. 检测更新                          \e[36m┃\e[0m"
+    color_output "\e[36m┃\e[0m  0. 退出                               \e[36m┃\e[0m"
+    color_output "\e[36m┃                                        ┃\e[0m"
+    color_output "\e[36m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\e[0m"
+    read -p "$(color_output "\e[33m请输入您的选择 [0-10]: \e[0m")" choice
+    case "$choice" in
+        1) change_ip ;;
+        2) change_password ;;
+        3) change_theme ;;
+        4) reset_config ;;
+        5) change_source ;;
+        6) one_click_setup ;;
+        7) install_apps ;;
+        8) configure_ipv6 ;;
+        9) istore_style ;;
+        10) check_update ;;
+        0) exit 0 ;;
+        *) echo "无效选项，请重新输入"; show_menu ;;
+    esac
+}
+
+# 1. 更换 LAN 口 IP 地址
+change_ip() {
+    color_output "\e[34m[更改 LAN 口 IP 地址]\e[0m"
+    read -p "请输入新的 LAN 口 IP 地址（如 192.168.1.2）: " new_ip
+    if [[ -n "$new_ip" ]]; then
+        uci set network.lan.ipaddr="$new_ip"
+        uci commit network
+        /etc/init.d/network restart
+        color_output "\e[32mLAN 口 IP 已成功更改为 $new_ip\e[0m"
+    else
+        color_output "\e[31m无效的 IP 地址，操作取消。\e[0m"
+    fi
+    read -p "按 Enter 键返回菜单..." 
+    show_menu
+}
+
+# 2. 更改管理员密码
+change_password() {
+    color_output "\e[34m[更改管理员密码]\e[0m"
+    read -p "请输入新的管理员密码: " new_password
+    if [[ -n "$new_password" ]]; then
+        # 使用 openssl 生成密码哈希，使用 -1 参数生成 MD5 格式的密码哈希
+        password_hash=$(openssl passwd -1 "$new_password")
+        
+        # 获取当前 shadow 文件的其他行
+        tail -n +2 /etc/shadow > /tmp/shadow.tmp
+        
+        # 创建新的 root 行
+        echo "root:$password_hash:0:0:99999:7:::" > /etc/shadow
+        
+        # 添加其他行
+        cat /tmp/shadow.tmp >> /etc/shadow
+        
+        # 清理临时文件
+        rm -f /tmp/shadow.tmp
+        
+        color_output "\e[32m管理员密码已成功更改。\e[0m"
+    else
+        color_output "\e[31m无效的密码，操作取消。\e[0m"
+    fi
+    read -p "按 Enter 键返回菜单..."
+    show_menu
+}
+
+# 3. 切换默认主题
+change_theme() {
+    color_output "\e[34m[切换默认主题]\e[0m"
+    uci set luci.main.mediaurlbase='/luci-static/bootstrap'
+    uci commit luci
+    color_output "\e[32m主题已成功切换为默认主题。\e[0m"
+    read -p "按 Enter 键返回菜单..."
+    show_menu
+}
+
+# 4. 一键重置配置
+reset_config() {
+    color_output "\e[31m[恢复出厂设置]\e[0m"
+    color_output "\e[31m警告：此操作将清除所有设置！\e[0m"
+    read -p "确定要继续吗？(y/n): " confirm
+    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+        echo "恢复出厂设置中..."
+        firstboot -y
+        color_output "\e[33m设备将在 5 秒钟后重启...\e[0m"
+        sleep 5
+        reboot
+    else
+        color_output "\e[32m操作已取消\e[0m"
+        read -p "按 Enter 键返回菜单..."
+        show_menu
+    fi
+}
+
+# 5. 一键换源
+change_source() {
+    color_output "\e[34m[更换软件源]\e[0m"
+    color_output "\e[36m请选择要使用的源：\e[0m"
+    color_output "1. 阿里源"
+    color_output "2. 清华源"
+    color_output "3. 中科大源"
+    color_output "4. 高校联合镜像站"
+    color_output "5. 南方科技大学"    
+    color_output "6. 官方源"
+    color_output "0. 返回"
+    read -p "请输入您的选择 [0-6]: " source_choice
+
+    # 检测当前设备架构
+    arch=$(uname -m)
+
+    # 针对不同架构的设置
+    case "$arch" in
+        "x86_64")
+            arch_name="x86_64"
+            ;;
+        "i386" | "pentium4")
+            arch_name="i386_pentium4"
+            ;;
+        "aarch64")
+            arch_name="aarch64_generic"
+            ;;
+        "armv7l")
+            arch_name="arm_cortex-a9"
+            ;;
+        "armv6l")
+            arch_name="arm_arm1176jzf-s_vfp"
+            ;;
+        "mips64el")
+            arch_name="mips64el"
+            ;;
+        "mipsel")
+            arch_name="mipsel_24kc"
+            ;;
+        "aarch64_cortex-a72")
+            arch_name="aarch64_cortex-a72"
+            ;;
+        "aarch64_cortex-a53")
+            arch_name="aarch64_cortex-a53"
+            ;;
+        "armv5te")
+            arch_name="arm_cortex-a5_vfpv4"
+            ;;
+        "armv8")
+            arch_name="arm_cortex-a15_neon-vfpv4"
+            ;;
+        *)
+            color_output "\e[31m不支持此架构：$arch，请选择其他源。\e[0m"
+            return
+            ;;
+    esac
+
+    # 根据选择的源和架构来设置对应的 base_url
+    case "$source_choice" in
+        1)
+            base_url="https://mirrors.aliyun.com/openwrt/releases/24.10.0-rc6/packages/$arch_name"
+            ;;
+        2)
+            base_url="https://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/24.10.0-rc6/packages/$arch_name"
+            ;;
+        3)
+            base_url="https://mirrors.ustc.edu.cn/openwrt/releases/24.10.0-rc6/packages/$arch_name"
+            ;;
+        4)
+            base_url="https://mirrors.xjtu.edu.cn/openwrt/releases/24.10.0-rc6/packages/$arch_name"
+            ;;
+        5)
+            base_url="https://mirrors.sustech.edu.cn/openwrt/releases/24.10.0-rc6/packages/$arch_name"
+            ;;        
+        6)
+            base_url="https://downloads.openwrt.org/releases/24.10.0-rc6/packages/$arch_name"
+            ;;
+        0) show_menu ; return ;;
+        *)
+            color_output "\e[31m无效选项，返回菜单。\e[0m"
+            show_menu
+            return
+            ;;
+    esac
+
+    # 更新软件源
+    cat <<EOF > /etc/opkg/distfeeds.conf
+src/gz openwrt_base $base_url/base
+src/gz openwrt_luci $base_url/luci
+src/gz openwrt_packages $base_url/packages
+src/gz openwrt_routing $base_url/routing
+src/gz openwrt_telephony $base_url/telephony
+EOF
+
+    color_output "\e[32m软件源已成功切换。\e[0m"
+    read -p "按 Enter 键返回菜单..."
+    show_menu
+}
+
+# 6. 一键设置
+one_click_setup() {
+    while true; do
+        clear
+        color_output "\e[34m[一键设置]\e[0m"
+        color_output "\e[36m┏━━━━━━━━━━━━━━━ 设置选项 ━━━━━━━━━━━━━━━┓\e[0m"
+        color_output "\e[36m┃                                        ┃\e[0m"
+        color_output "\e[36m┃\e[0m  1. SmartDNS + AdGuardHome             \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  2. MosDNS + AdGuardHome               \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  3. 恢复默认设置                       \e[36m┃\e[0m"        
+        color_output "\e[36m┃\e[0m  0. 返回上一级                         \e[36m┃\e[0m"
+        color_output "\e[36m┃                                        ┃\e[0m"
+        color_output "\e[36m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\e[0m"
+        
+        read -p "$(color_output "\e[33m请输入您的选择 [0-3]: \e[0m")" setup_choice
+
+        case "$setup_choice" in
+            1) 
+                color_output "\e[34m[SmartDNS + AdGuardHome]\e[0m"
+                
+                # 设置LAN口DNS
+                uci set network.lan.dns='127.0.0.1'
+                uci commit network
+
+                # 恢复 MosDNS 配置
+                cp /etc/config/default_mosdns /etc/config/mosdns
+                /etc/init.d/mosdns restart
+
+                # Dnsmasq设置
+                uci set dhcp.@dnsmasq[0].cachesize='0'
+                uci commit dhcp
+                /etc/init.d/dnsmasq restart
+
+                # 配置 SmartDNS
+                uci set smartdns.@smartdns[0].prefetch_domain='1'
+                uci set smartdns.@smartdns[0].port='6053'
+                uci set smartdns.@smartdns[0].seconddns_port='5335'
+                uci set smartdns.@smartdns[0].seconddns_no_rule_addr='1'
+                uci set smartdns.@smartdns[0].seconddns_no_rule_nameserver='0'
+                uci set smartdns.@smartdns[0].seconddns_no_rule_ip='0'
+                uci set smartdns.@smartdns[0].seconddns_no_rule_soa='0'
+                uci set smartdns.@smartdns[0].tcp_server='1'
+                uci set smartdns.@smartdns[0].rr_ttl='600'
+                uci set smartdns.@smartdns[0].seconddns_enabled='1'
+                uci set smartdns.@smartdns[0].server_name='smartdns-China'
+                uci set smartdns.@smartdns[0].seconddns_tcp_server='1'
+                uci set smartdns.@smartdns[0].seconddns_server_group='smartdns-Overseas'
+                uci set smartdns.@smartdns[0].rr_ttl_min='5'
+                uci set smartdns.@smartdns[0].seconddns_no_speed_check='1'
+                uci set smartdns.@smartdns[0].cache_size='190150'
+                uci set smartdns.@smartdns[0].serve_expired='1'
+                uci set smartdns.@smartdns[0].auto_set_dnsmasq='0'
+                uci set smartdns.@smartdns[0].ipv6_server='0'
+                uci set smartdns.@smartdns[0].dualstack_ip_selection='0'
+                uci set smartdns.@smartdns[0].force_aaaa_soa='1'
+                uci set smartdns.@smartdns[0].coredump='1'
+                uci set smartdns.@smartdns[0].speed_check_mode='tcp:443,tcp:80,ping'
+                uci set smartdns.@smartdns[0].resolve_local_hostnames='1'
+                uci set smartdns.@smartdns[0].seconddns_force_aaaa_soa='1'
+                uci set smartdns.@smartdns[0].enable_auto_update='0'
+                uci set smartdns.@smartdns[0].enabled='1'
+                uci set smartdns.@smartdns[0].bind_device='1'
+                uci set smartdns.@smartdns[0].cache_persist='1'
+                uci set smartdns.@smartdns[0].force_https_soa='1'
+                uci set smartdns.@smartdns[0].seconddns_no_dualstack_selection='1'
+                uci set smartdns.@smartdns[0].seconddns_no_cache='1'
+                uci commit smartdns
+                /etc/init.d/smartdns restart
+                
+                # AdguardHome 设置
+                cp /etc/config/default_AdGuardHome /etc/AdGuardHome.yaml
+                sed -i 's/cache_size: .*/cache_size: 0/' /etc/AdGuardHome.yaml
+                sed -i 's/upstream_mode: .*/upstream_mode: parallel/' /etc/AdGuardHome.yaml
+                sed -i 's/upstream_dns_file:.*/upstream_dns_file: \/etc\/AdGuardHome-dnslist.yaml/' /etc/AdGuardHome.yaml
+                uci set AdGuardHome.AdGuardHome.enabled='1'
+                uci set AdGuardHome.AdGuardHome.redirect='dnsmasq-upstream'
+                uci commit AdGuardHome
+                /etc/init.d/AdGuardHome restart
+
+                # passwall 设置
+                uci set passwall.@global[0].dns_shunt='dnsmasq'
+                uci set passwall.@global[0].remote_dns='127.0.0.1:5553'
+                uci set passwall.@global[0].dns_mode='udp'
+                uci commit passwall
+                /etc/init.d/passwall restart
+
+                ### OpenClash设置
+                # 禁用默认DNS配置
+                n=0
+                while [ "$n" -lt $(uci show openclash|grep -c "^openclash.@dns_servers\[[0-9]\{1,10\}\]=dns_servers") ]; do
+                  uci set openclash.@dns_servers[$n].enabled='0'
+                  n=$((n + 1))
+                done
+                # 设置DNS
+                uci add openclash dns_servers
+                uci set openclash.@dns_servers[-1].enabled='1'
+                uci set openclash.@dns_servers[-1].group='nameserver'
+                uci set openclash.@dns_servers[-1].type='udp'
+                uci set openclash.@dns_servers[-1].ip='127.0.0.1'
+                uci set openclash.@dns_servers[-1].port='5553'
+                uci add openclash dns_servers
+                uci set openclash.@dns_servers[-1].enabled='1'
+                uci set openclash.@dns_servers[-1].group='fallback'
+                uci set openclash.@dns_servers[-1].type='udp'
+                uci set openclash.@dns_servers[-1].ip='127.0.0.1'
+                uci set openclash.@dns_servers[-1].port='5553'
+                uci set openclash.config.enable_custom_dns='1'
+                # 模式设置
+                uci set openclash.config.en_mode='fake-ip-mix'
+                # 自定义上游DNS服务器
+                uci set openclash.config.enable_custom_dns='1'
+                # Fake-IP持久化
+                uci set openclash.config.store_fakeip='1'
+                # 启用Fake-IP 过滤器
+                uci set openclash.config.custom_fakeip_filter='1'
+                # 开启绕过服务器地址
+                uci set openclash.config.bypass_gateway_compatible='1'
+                # 禁用本地 DNS 劫持
+                uci set openclash.config.enable_redirect_dns='0'
+                # 开启 GeoIP MMDB 自动更新
+                uci set openclash.config.geoip_auto_update='1'
+                uci set openclash.config.geoip_update_week_time='*'  # 每周更新
+                uci set openclash.config.geoip_update_day_time='3'  # 每周的第 3 天（可以根据需求修改）
+                # 开启 GeoIP Dat 自动更新
+                uci set openclash.config.geo_auto_update='1'
+                uci set openclash.config.geo_update_week_time='*'  # 每周更新
+                uci set openclash.config.geo_update_day_time='1'  # 每周的第 1 天（可以根据需求修改）
+                # 开启 GeoSite 数据库自动更新
+                uci set openclash.config.geosite_auto_update='1'
+                uci set openclash.config.geosite_update_week_time='*'  # 每周更新
+                uci set openclash.config.geosite_update_day_time='4'  # 每周的第 4 天（可以根据需求修改）
+                # 启用大陆白名单订阅自动更新
+                uci set openclash.config.chnr_auto_update='1'  # 开启大陆白名单订阅自动更新
+                uci set openclash.config.chnr_update_week_time='*'  # 每周更新
+                uci set openclash.config.chnr_update_day_time='5'  # 每周的第 5 天（可以根据需求修改）
+                uci commit openclash               
+
+                color_output "\e[32mSmartDNS 和 AdGuardHome 配置完成。\e[0m"
+                read -p "按 Enter 键继续..."
+                ;;
+            2) 
+                color_output "\e[34m[MosDNS + AdGuardHome]\e[0m"
+
+                # 设置LAN口DNS
+                uci set network.lan.dns='127.0.0.1'
+                uci commit network
+
+                # 恢复 SmartDNS 配置
+                cp /etc/config/default_smartdns /etc/config/smartdns
+                /etc/init.d/smartdns restart
+
+                # Dnsmasq设置
+                uci set dhcp.@dnsmasq[0].cachesize='0'
+                uci commit dhcp
+                /etc/init.d/dnsmasq restart
+                
+                # 配置 MosDNS
+                uci set mosdns.config.enabled='1'    
+                uci set mosdns.config.redirect='0'
+                uci set mosdns.config.custom_local_dns='1'
+                uci set mosdns.config.dump_file='1'
+                uci add_list mosdns.config.local_dns='119.29.29.29'  # DNS 服务器
+                uci add_list mosdns.config.local_dns='119.28.28.28'  # DNS 服务器
+                uci add_list mosdns.config.local_dns='223.5.5.5'     # DNS 服务器
+                uci add_list mosdns.config.local_dns='223.6.6.6'     # DNS 服务器
+                uci add_list mosdns.config.local_dns='180.184.1.1'   # DNS 服务器
+                uci add_list mosdns.config.local_dns='114.114.114.114' # DNS 服务器
+                uci add_list mosdns.config.local_dns='https://doh.pub/dns-query'  # DoH 服务器
+                uci add_list mosdns.config.local_dns='quic://dns.alidns.com'  # QUIC 协议
+                uci add_list mosdns.config.local_dns='h3://dns.alidns.com/dns-query'  # HTTP3 协议
+                uci add_list mosdns.config.local_dns='https://dns.alidns.com/dns-query'  # DoH 服务器
+                uci add_list mosdns.config.local_dns='https://doh.360.cn/dns-query'  # 360 DoH
+                uci set mosdns.config.remote_dns='tls://8.8.8.8'
+                uci add_list mosdns.config.remote_dns='tls://1.1.1.1'
+                uci add_list mosdns.config.remote_dns='tls://dns.google'
+                uci add_list mosdns.config.remote_dns='tls://cloudflare-dns.com'
+                uci set mosdns.config.cache='1'
+                uci set mosdns.config.dns_leak='1'
+                uci set mosdns.config.concurrent='2'
+                uci set mosdns.config.minimal_ttl='5'
+                uci set mosdns.config.maximum_ttl='300'  
+                uci commit mosdns
+                /etc/init.d/mosdns restart
+                
+                # 配置 AdGuardHome
+                cp /etc/config/default_AdGuardHome /etc/AdGuardHome.yaml
+                sed -i 's/upstream_dns_file:.*/upstream_dns_file: \/etc\/AdGuardHome-mosdns.yaml/' /etc/AdGuardHome.yaml
+                sed -i 's/cache_size: .*/cache_size: 0/' /etc/AdGuardHome.yaml
+                sed -i 's/upstream_mode: .*/upstream_mode: parallel/' /etc/AdGuardHome.yaml
+                uci set AdGuardHome.AdGuardHome.enabled='1'
+                uci set AdGuardHome.AdGuardHome.redirect='dnsmasq-upstream'
+                uci commit AdGuardHome
+                /etc/init.d/AdGuardHome restart
+
+                # passwall 设置
+                uci set passwall.@global[0].dns_shunt='dnsmasq'
+                uci set passwall.@global[0].remote_dns='127.0.0.1:5553'
+                uci set passwall.@global[0].dns_mode='udp'
+                uci commit passwall
+                /etc/init.d/passwall restart
+
+                ### OpenClash设置
+                # 禁用默认DNS配置
+                n=0
+                while [ "$n" -lt $(uci show openclash|grep -c "^openclash.@dns_servers\[[0-9]\{1,10\}\]=dns_servers") ]; do
+                  uci set openclash.@dns_servers[$n].enabled='0'
+                  n=$((n + 1))
+                done
+                # 设置DNS
+                uci add openclash dns_servers
+                uci set openclash.@dns_servers[-1].enabled='1'
+                uci set openclash.@dns_servers[-1].group='nameserver'
+                uci set openclash.@dns_servers[-1].type='udp'
+                uci set openclash.@dns_servers[-1].ip='127.0.0.1'
+                uci set openclash.@dns_servers[-1].port='5553'
+                uci add openclash dns_servers
+                uci set openclash.@dns_servers[-1].enabled='1'
+                uci set openclash.@dns_servers[-1].group='fallback'
+                uci set openclash.@dns_servers[-1].type='udp'
+                uci set openclash.@dns_servers[-1].ip='127.0.0.1'
+                uci set openclash.@dns_servers[-1].port='5553'
+                uci set openclash.config.enable_custom_dns='1'
+                # 模式设置
+                uci set openclash.config.en_mode='fake-ip-mix'
+                # 自定义上游DNS服务器
+                uci set openclash.config.enable_custom_dns='1'
+                # Fake-IP持久化
+                uci set openclash.config.store_fakeip='1'
+                # 启用Fake-IP 过滤器
+                uci set openclash.config.custom_fakeip_filter='1'
+                # 开启绕过服务器地址
+                uci set openclash.config.bypass_gateway_compatible='1'
+                # 禁用本地 DNS 劫持
+                uci set openclash.config.enable_redirect_dns='0'
+                # 开启 GeoIP MMDB 自动更新
+                uci set openclash.config.geoip_auto_update='1'
+                uci set openclash.config.geoip_update_week_time='*'  # 每周更新
+                uci set openclash.config.geoip_update_day_time='3'  # 每周的第 3 天（可以根据需求修改）
+                # 开启 GeoIP Dat 自动更新
+                uci set openclash.config.geo_auto_update='1'
+                uci set openclash.config.geo_update_week_time='*'  # 每周更新
+                uci set openclash.config.geo_update_day_time='1'  # 每周的第 1 天（可以根据需求修改）
+                # 开启 GeoSite 数据库自动更新
+                uci set openclash.config.geosite_auto_update='1'
+                uci set openclash.config.geosite_update_week_time='*'  # 每周更新
+                uci set openclash.config.geosite_update_day_time='4'  # 每周的第 4 天（可以根据需求修改）
+                # 启用大陆白名单订阅自动更新
+                uci set openclash.config.chnr_auto_update='1'  # 开启大陆白名单订阅自动更新
+                uci set openclash.config.chnr_update_week_time='*'  # 每周更新
+                uci set openclash.config.chnr_update_day_time='5'  # 每周的第 5 天（可以根据需求修改）
+                uci commit openclash      
+
+                color_output "\e[32mMosDNS 和 AdGuardHome 配置完成。\e[0m"
+                read -p "按 Enter 键继续..."
+                ;;
+            3)
+                color_output "\e[34m[恢复默认设置]\e[0m"
+
+                # 取消LAN口DNS
+                uci delete network.lan.dns
+                uci commit network
+                # 恢复 SmartDNS 配置
+                cp /etc/config/default_smartdns /etc/config/smartdns
+                /etc/init.d/smartdns restart
+                # 恢复 MosDNS 配置
+                cp /etc/config/default_mosdns /etc/config/mosdns
+                /etc/init.d/mosdns restart
+                # 恢复 adguardhome
+                uci set AdGuardHome.AdGuardHome.enabled='0'
+                uci set AdGuardHome.AdGuardHome.redirect='none'                             
+                cp /etc/config/default_AdGuardHome /etc/AdGuardHome.yaml
+                sed -i 's/upstream_dns_file:.*/upstream_dns_file: \/etc\/AdGuardHome-dns.yaml/' /etc/AdGuardHome.yaml
+                uci commit AdGuardHome
+                /etc/init.d/AdGuardHome restart
+                # 恢复 passwall
+                cp /etc/config/default_passwall /etc/config/passwall
+                /etc/init.d/passwall restart                
+                # 恢复 openclash
+                cp /etc/config/default_openclash /etc/config/openclash
+                uci commit openclash
+                /etc/init.d/openclash restart
+                 
+                color_output "\e[32m恢复默认设置 配置完成。\e[0m"
+                read -p "按 Enter 键继续..."
+                ;;
+            0) 
+                show_menu 
+                return 
+                ;;  # 返回上一层菜单
+            *) 
+                color_output "\e[31m无效选项，返回菜单。\e[0m" 
+                continue 
+                ;;
+        esac
+    done
+}
+
+# 7. 一键部署
+install_apps() {
+    while true; do
+        clear
+        color_output "\e[34m[一键部署]\e[0m"
+        color_output "\e[36m┏━━━━━━━━━━━━━━━ 部署选项 ━━━━━━━━━━━━━━━┓\e[0m"
+        color_output "\e[36m┃                                        ┃\e[0m"
+        color_output "\e[36m┃\e[0m  1. 部署 ShellClash                    \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  2. 部署 小雅 Alist                    \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  3. 部署 Subconverter                  \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  4. 部署 AdGuardhome                   \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  5. 部署 Gitea-MySQL                   \e[36m┃\e[0m"
+        color_output "\e[36m┃\e[0m  6. 部署 SunPanel导航页                \e[36m┃\e[0m"        
+        color_output "\e[36m┃\e[0m  0. 返回主菜单                         \e[36m┃\e[0m"
+        color_output "\e[36m┃                                        ┃\e[0m"
+        color_output "\e[36m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\e[0m"
+        
+        read -p "$(color_output "\e[33m请输入您的选择 [0-6]: \e[0m")" app_choice
+
+        case "$app_choice" in
+            1)
+                color_output "\e[34m[部署 ShellClash]\e[0m"
+                color_output "\e[36m请选择 ShellClash 的安装源：\e[0m"
+                color_output "1. GitHub 源"
+                color_output "2. jsDelivr CDN 源"
+                color_output "0. 返回"
+                read -p "请输入您的选择 [0-2]: " install_choice
+
+                case "$install_choice" in
+                    1) export url='https://raw.githubusercontent.com/juewuy/ShellCrash/master' ;;
+                    2) export url='https://fastly.jsdelivr.net/gh/juewuy/ShellCrash@master' ;;
+                    0) continue ;;
+                    *) 
+                        color_output "\e[31m无效选项\e[0m"
+                        sleep 2
+                        continue 
+                        ;;
+                esac
+
+                if [ "$install_choice" != "0" ]; then
+                    sh -c "$(curl -kfsSl $url/install.sh)" && source /etc/profile &> /dev/null
+                    color_output "\e[32mShellClash 已成功安装。\e[0m"
+                    read -p "按 Enter 键继续..."
+                fi
+                ;;
+
+            2)
+                color_output "\e[34m[部署小雅 Alist]\e[0m"
+                color_output "\e[33m正在部署小雅 Alist...\e[0m"
+                bash -c "$(curl --insecure -fsSL https://ddsrem.com/xiaoya_install.sh)"
+                color_output "\e[32m小雅 Alist 安装完成。\e[0m"
+                read -p "按 Enter 键继续..."
+                ;;
+            3)
+                color_output "\e[34m[部署 Subconverter]\e[0m"
+                
+                # 检查 Docker 是否已安装
+                if ! command -v docker &> /dev/null; then
+                    color_output "\e[33m未检测到 Docker，正在安装...\e[0m"
+                    opkg update && opkg install docker
+                fi
+                
+                # 检查 Subconverter 是否已运行
+                if docker ps | grep -q "subconverter"; then
+                    color_output "\e[32mSubconverter 已经在运行\e[0m"
+                    
+                    # 获取本机 IP 地址
+                    local_ip=$(ip addr show br-lan | grep -w inet | awk '{print $2}' | cut -d/ -f1)
+                    
+                # 显示配置模板选项
+                color_output "\e[36m┏━━━━━━━━━━━━━━━ 配置模板 ━━━━━━━━━━━━━━━┓\e[0m"
+                color_output "\e[36m┃                                        ┃\e[0m"
+                color_output "\e[36m┃\e[0m  1. ACL4SSR_Online_Mini.ini            \e[36m┃\e[0m"
+                color_output "\e[36m┃\e[0m  2. ACL4SSR_Online_Full.ini            \e[36m┃\e[0m"
+                color_output "\e[36m┃\e[0m  3. ACL4SSR_Online.ini                 \e[36m┃\e[0m"
+                color_output "\e[36m┃\e[0m  0. 返回上一级                         \e[36m┃\e[0m"
+                color_output "\e[36m┃                                        ┃\e[0m"
+                color_output "\e[36m┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\e[0m"
+                read -p "$(color_output "\e[33m请输入选择 [0-3]: \e[0m")" template_choice
+
+                case "$template_choice" in
+                1) config_url="https://git.kejizero.online/zhao/rule/raw/branch/main/mihomo/ACL4SSR_Online_Mini.ini" ;;
+                2) config_url="https://git.kejizero.online/zhao/rule/raw/branch/main/mihomo/ACL4SSR_Online_Full.ini" ;;
+                3) config_url="https://git.kejizero.online/zhao/rule/raw/branch/main/mihomo/ACL4SSR_Online.ini" ;;
+                0) continue ;; # 返回上一级
+                *) 
+                color_output "\e[31m无效选择\e[0m"
+                read -p "按 Enter 键继续..."
+                continue
+                 ;;
+                esac
+                    
+                    # 获取订阅链接
+                    read -p "请输入订阅链接: " sub_url
+                    
+                    if [ -n "$sub_url" ]; then
+                        # 生成完整的转换链接
+                        convert_url="http://${local_ip}:25500/sub?target=clash&insert=true&new_name=true&scv=true&url=${sub_url}&config=${config_url}"
+                        
+                        color_output "\e[32m转换链接已生成：\e[0m"
+                        color_output "\e[33m${convert_url}\e[0m"
+                    else
+                        color_output "\e[31m订阅链接不能为空\e[0m"
+                    fi
+                else
+                    color_output "\e[33m正在部署 Subconverter...\e[0m"
+                    if docker run -d --restart=always -p 25500:25500 tindy2013/subconverter:latest; then
+                        color_output "\e[32mSubconverter 部署成功！\e[0m"
+                    else
+                        color_output "\e[31mSubconverter 部署失败\e[0m"
+                    fi
+                fi
+                read -p "按 Enter 键返回..."
+                ;;
+            4)
+                color_output "\e[34m[部署 AdGuardHome]\e[0m"
+                
+                # 检查 Docker 是否已安装
+                if ! command -v docker &> /dev/null; then
+                    color_output "\e[33m未检测到 Docker，正在安装...\e[0m"
+                    opkg update && opkg install docker
+                fi
+                
+                # 获取本机 IP 地址
+                local_ip=$(ip addr show br-lan | grep -w inet | awk '{print $2}' | cut -d/ -f1)
+                
+                # 检查 AdGuardHome 是否已运行
+                if docker ps | grep -q "adguardhome"; then
+                    color_output "\e[32mAdGuardHome 已经在运行！\e[0m"
+                    color_output "\e[33m请使用浏览器访问：\e[0m"
+                    color_output "\e[32mhttp://${local_ip}:3000\e[0m"
+                else
+                    color_output "\e[33m正在部署 AdGuardHome...\e[0m"
+                    
+                    # 创建配置目录
+                    mkdir -p /root/adguardhome/work /root/adguardhome/conf
+                    
+                    # 部署 AdGuardHome
+                    if docker run -d \
+                        --name adguardhome \
+                        -v /root/adguardhome/work:/opt/adguardhome/work \
+                        -v /root/adguardhome/conf:/opt/adguardhome/conf \
+                        -p 3000:3000 \
+                        --restart always \
+                        adguard/adguardhome; then
+                        
+                        color_output "\e[32m\nAdGuardHome 部署成功！\e[0m"
+                        color_output "\e[33m请使用浏览器访问以下地址进行配置：\e[0m"
+                        color_output "\e[32mhttp://${local_ip}:3000\e[0m"
+                    else
+                        color_output "\e[31mAdGuardHome 部署失败\e[0m"
+                    fi
+                fi
+                read -p "按 Enter 键返回..."
+                ;;
+            5)
+                color_output "\e[34m[部署 Gitea-MySQL]\e[0m"
+
+                # 检查 Gitea 容器是否已存在
+                if docker ps -a | grep -q "gitea"; then
+                    color_output "\e[33mGitea-MySQL 已经部署过，跳过部署！\e[0m"
+                    read -p "按 Enter 键返回..."
+                    continue
+                fi
+
+                color_output "\e[33m正在部署 Gitea 和 MySQL...\e[0m"
+
+                # 创建目录
+                mkdir -p /opt/Gitea
+                mkdir -p /opt/MySQL
+
+                # 下载 Docker Compose 文件到 /opt/gitea
+                curl -L https://git.kejizero.online/zhao/files/raw/branch/main/docker-compose/Gitea -o /opt/Gitea/docker-compose.yml
+    
+                # 检查是否下载成功
+                if [ -f "/opt/Gitea/docker-compose.yml" ]; then
+                    color_output "\e[32mDocker Compose 文件下载成功！\e[0m"
+                else
+                    color_output "\e[31mDocker Compose 文件下载失败！\e[0m"
+                    read -p "按 Enter 键返回..."
+                    continue
+                fi
+
+                # 部署 Gitea 和 MySQL
+                cd /opt/Gitea
+                docker-compose up -d
+    
+                if docker ps | grep -q "gitea"; then
+                    color_output "\e[32mGitea-MySQL 部署成功！\e[0m"
+                else
+                    color_output "\e[31mGitea-MySQL 部署失败！\e[0m"
+                fi
+                read -p "按 Enter 键返回..."
+                ;;
+            6)
+                color_output "\e[34m[部署 sun-panel]\e[0m"
+
+                # 检查 SunPanel 容器是否已存在
+                if docker ps -a --filter "name=sun-panel" | grep -q "sun-panel"; then
+                    color_output "\e[33msun-panel 已经部署过，跳过部署！\e[0m"
+                    read -p "按 Enter 键返回..."
+                    continue
+                fi
+
+                color_output "\e[33m正在部署 SunPanel...\e[0m"
+
+                # 创建目录
+                mkdir -p /opt/sunpanel
+
+                # 下载 Docker Compose 文件到 /opt/sunpanel
+                curl -v -L https://git.kejizero.online/zhao/files/raw/branch/main/docker-compose/SunPanel -o /opt/sunpanel/docker-compose.yml
+
+                # 检查是否下载成功
+                if [ -f "/opt/sunpanel/docker-compose.yml" ]; then
+                    color_output "\e[32mDocker Compose 文件下载成功！\e[0m"
+                else
+                    color_output "\e[31mDocker Compose 文件下载失败！\e[0m"
+                    read -p "按 Enter 键返回..."
+                    continue
+                fi
+
+                # 部署 SunPanel
+                docker-compose up -d
+                cd /opt/sunpanel
+                docker-compose up -d
+
+                if docker ps | grep -q "sun-panel"; then
+                    color_output "\e[32msun-panel 部署成功！\e[0m"
+                else
+                    color_output "\e[31msun-panel 部署失败！\e[0m"
+                    docker logs $(docker ps -a -q --filter "name=sun-panel")  # 查看失败的容器日志
+                fi
+                read -p "按 Enter 键返回..."
+                ;;                                  
+            0)
+                show_menu
+                return
+                ;;
+            *)
+                color_output "\e[31m无效选项，请重新选择\e[0m"
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+# 8. IPv6 开关
+configure_ipv6() {
+    color_output "\e[34m[IPv6 设置]\e[0m"
+    
+    # 检查是否为 PPPoE 模式
+    local wan_proto=$(uci -q get network.wan.proto)
+    if [ "$wan_proto" != "pppoe" ]; then
+        color_output "\e[31m错误: 无法开启 IPv6\e[0m"
+        color_output "\e[31m当前上网方式为: $wan_proto\e[0m"
+        color_output "\e[31m请先切换为 PPPoE 模式\e[0m"
+        read -p "按 Enter 键返回菜单..."
+        show_menu
+        return
+    fi
+    
+    # 检查当前状态
+    local current_ra=$(uci -q get dhcp.lan.ra)
+    local current_dhcpv6=$(uci -q get dhcp.lan.dhcpv6)
+    local current_ndp=$(uci -q get dhcp.lan.ndp)
+    local current_filter_aaaa=$(uci -q get dhcp.@dnsmasq[0].filter_aaaa)
+    
+    if [ "$current_ra" = "server" ] && [ "$current_dhcpv6" = "server" ]; then
+        status_text="已开启"
+    else
+        status_text="已关闭"
+    fi
+    
+    color_output "\e[36m当前 IPv6 状态: $status_text\e[0m"
+    color_output "\e[36m请选择操作：\e[0m"
+    color_output "1. 开启 IPv6"
+    color_output "2. 关闭 IPv6"
+    color_output "0. 返回主菜单"
+    
+    read -p "请输入选择 [0-2]: " ipv6_choice
+    
+    case "$ipv6_choice" in
+        1)
+            # 开启 IPv6
+            # RA 服务设置为服务模式
+            uci set dhcp.lan.ra='server'
+            # DHCPv6 服务设置为服务模式
+            uci set dhcp.lan.dhcpv6='server'
+            # IPv6 分配长度设置为64
+            uci set dhcp.lan.ndp='64'
+            # 取消过滤 IPv6 AAAA 记录
+            uci set dhcp.@dnsmasq[0].filter_aaaa='0'
+            # 保存设置
+            uci commit dhcp
+            
+            # 重启相关服务（重定向输出）
+            /etc/init.d/odhcpd restart >/dev/null 2>&1
+            /etc/init.d/dnsmasq restart >/dev/null 2>&1
+            
+            color_output "\e[32mIPv6 已开启！\e[0m"
+            color_output "\e[32m- RA 服务: 服务模式\e[0m"
+            color_output "\e[32m- DHCPv6 服务: 服务模式\e[0m"
+            color_output "\e[32m- IPv6 分配长度: 64\e[0m"
+            color_output "\e[32m- IPv6 AAAA 记录过滤: 已关闭\e[0m"
+            ;;
+            
+        2)
+            # 关闭 IPv6
+            # RA 服务设置为已禁用
+            uci set dhcp.lan.ra='disabled'
+            # DHCPv6 服务设置为已禁用
+            uci set dhcp.lan.dhcpv6='disabled'
+            # IPv6 分配长度设置为已禁用
+            uci set dhcp.lan.ndp='disabled'
+            # 开启过滤 IPv6 AAAA 记录
+            uci set dhcp.@dnsmasq[0].filter_aaaa='1'
+            # 保存设置
+            uci commit dhcp
+            
+            # 重启相关服务（重定向输出）
+            /etc/init.d/odhcpd restart >/dev/null 2>&1
+            /etc/init.d/dnsmasq restart >/dev/null 2>&1
+            
+            color_output "\e[32mIPv6 已关闭！\e[0m"
+            color_output "\e[32m- RA 服务: 已禁用\e[0m"
+            color_output "\e[32m- DHCPv6 服务: 已禁用\e[0m"
+            color_output "\e[32m- IPv6 分配长度: 已禁用\e[0m"
+            color_output "\e[32m- IPv6 AAAA 记录过滤: 已开启\e[0m"
+            ;;
+            
+        0)
+            show_menu
+            return
+            ;;
+            
+        *)
+            color_output "\e[31m无效选择\e[0m"
+            ;;
+    esac
+    
+    sleep 2
+    read -p "按 Enter 键返回菜单..."
+    show_menu
+}
+
+# 9. iStoreOS 风格化
+istore_style() {
+    clear
+    color_output "\e[34m[开始安装 iStoreOS 风格化]\e[0m"
+
+
+    # 安装 iStore 商店
+    color_output "\e[34m[1/2] 正在安装 iStore 商店...\e[0m"
+    wget -qO install.sh https://git.kejizero.online/zhao/files/raw/branch/main/%20Script/iStoreOS/install.sh && chmod +x install.sh && ./install.sh
+    color_output "\e[32miStore 商店安装完成\e[0m"
+    
+    # 安装网络向导和首页
+    color_output "\e[34m[2/2] 正在安装网络向导和首页...\e[0m"
+    is-opkg install luci-i18n-quickstart-zh-cn
+    color_output "\e[32m网络向导和首页安装完成\e[0m"
+    
+    color_output "\e[32m所有组件安装完成！\e[0m"
+    read -p "按 Enter 键返回主菜单..."
+    show_menu
+}
+
+# 10. 检测更新
+check_update() {
+    color_output "\e[34m[检测更新]\e[0m"
+    color_output "正在检查更新..."
+    
+    # 检查 wget 是否安装
+    if ! command -v wget >/dev/null 2>&1; then
+        color_output "\e[33m正在安装 wget...\e[0m"
+        opkg update && opkg install wget
+    fi
+    
+    # 创建临时目录
+    local temp_dir="/tmp/zerowrt_update"
+    mkdir -p "$temp_dir"
+    
+    # 下载远程版本文件
+    if ! wget -q "https://git.kejizero.online/zhao/files/raw/branch/main/bin/version.txt" -O "$temp_dir/version.txt"; then
+        color_output "\e[31m无法连接到更新服务器。\e[0m"
+        rm -rf "$temp_dir"
+        read -p "按 Enter 键返回菜单..."
+        show_menu
+        return
+    fi
+    
+    # 获取本地版本和远程版本
+    local_version=$(cat /root/version.txt 2>/dev/null || echo "0")
+    remote_version=$(cat "$temp_dir/version.txt" 2>/dev/null || echo "0")
+    
+    # 比较版本
+    if [ "$local_version" != "$remote_version" ]; then
+        color_output "\e[33m发现新版本：$remote_version\e[0m"
+        color_output "\e[33m当前版本：$local_version\e[0m"
+        read -p "是否更新到最新版本？(y/n): " confirm
+        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+            color_output "开始下载更新..."
+            
+            # 下载新版本到临时文件
+            if wget -q "https://git.kejizero.online/zhao/files/raw/branch/main/bin/ZeroWrt" -O "$temp_dir/ZeroWrt.new"; then
+                # 检查文件是否为有效的 shell 脚本
+                if head -n1 "$temp_dir/ZeroWrt.new" | grep -q "^#!/bin/bash"; then
+                    # 备份当前版本
+                    cp /bin/ZeroWrt /bin/ZeroWrt.bak 2>/dev/null
+                    
+                    # 安装新版本
+                    mv "$temp_dir/ZeroWrt.new" /bin/ZeroWrt
+                    chmod +x /bin/ZeroWrt
+                    
+                    # 更新版本文件
+                    echo "$remote_version" > /root/version.txt
+                    
+                    color_output "\e[32m更新成功！\e[0m"
+                    color_output "\e[32m已备份原版本为 /bin/ZeroWrt.bak\e[0m"
+                    color_output "\e[32m请重新运行脚本以应用更新。\e[0m"
+                    
+                    # 清理并退出
+                    rm -rf "$temp_dir"
+                    exit 0
+                else
+                    color_output "\e[31m下载的文件格式不正确。\e[0m"
+                fi
+            else
+                color_output "\e[31m更新下载失败。\e[0m"
+            fi
+        else
+            color_output "\e[32m已取消更新。\e[0m"
+        fi
+    else
+        color_output "\e[32m当前已是最新版本：$local_version\e[0m"
+    fi
+    
+    # 清理临时文件
+    rm -rf "$temp_dir"
+    read -p "按 Enter 键返回菜单..."
+    show_menu
+} 
+
+# 启动菜单
+print_header
+show_menu
