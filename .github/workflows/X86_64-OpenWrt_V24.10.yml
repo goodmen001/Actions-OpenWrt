@@ -14,7 +14,7 @@ on:
 env:
   REPO_URL: https://github.com/openwrt/openwrt
   REPO_BRANCH: openwrt-24.10
-  CONFIG_FILE: zerowrt/configs/x86_86_iStoreOS.config
+  CONFIG_FILE: zerowrt/configs/x86_64_iStoreOS.config
   DIY_SCRIPT: zerowrt/diy/diy-x86_64.sh
   CLASH_KERNEL: amd64
   CACHE_TOOLCHAIN: true
