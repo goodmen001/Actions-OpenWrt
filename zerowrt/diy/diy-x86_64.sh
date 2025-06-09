@@ -164,10 +164,10 @@ rm -rf package/lucky/previews
 rm -rf feeds/luci/applications/luci-app-dockerman
 git clone https://github.com/oppen321/luci-app-dockerman feeds/luci/applications/luci-app-dockerman
 rm -rf feeds/packages/utils/{docker,dockerd,containerd,runc}
-git clone https://git.kejizero.online/zhao/packages_utils_docker feeds/packages/utils/docker
-git clone https://git.kejizero.online/zhao/packages_utils_dockerd feeds/packages/utils/dockerd
-git clone https://git.kejizero.online/zhao/packages_utils_containerd feeds/packages/utils/containerd
-git clone https://git.kejizero.online/zhao/packages_utils_runc feeds/packages/utils/runc
+git clone https://github.com/grandway2025/packages_utils_docker feeds/packages/utils/docker
+git clone https://github.com/grandway2025/packages_utils_dockerd feeds/packages/utils/dockerd
+git clone https://github.com/grandway2025/packages_utils_containerd feeds/packages/utils/containerd
+git clone https://github.com/grandway2025/packages_utils_runc feeds/packages/utils/runc
 sed -i '/cgroupfs-mount/d' feeds/packages/utils/dockerd/Config.in
 sed -i '/sysctl.d/d' feeds/packages/utils/dockerd/Makefile
 pushd feeds/packages
@@ -178,8 +178,8 @@ popd
 
 # UPnP
 rm -rf feeds/{packages/net/miniupnpd,luci/applications/luci-app-upnp}
-git clone https://git.kejizero.online/zhao/miniupnpd feeds/packages/net/miniupnpd -b v2.3.7
-git clone https://git.kejizero.online/zhao/luci-app-upnp feeds/luci/applications/luci-app-upnp -b master
+git clone https://github.com/grandway2025/miniupnpd feeds/packages/net/miniupnpd
+git clone https://github.com/grandway2025/luci-app-upnp feeds/luci/applications/luci-app-upnp
 
 # opkg
 mkdir -p package/system/opkg/patches
